@@ -1,7 +1,9 @@
-import { DesktopFolders } from "@/components/desktop/desktop-folders";
+import { Desktop } from "@/components/desktop/desktop";
 import { Dock } from "@/components/desktop/dock";
 import { Hero } from "@/components/desktop/hero";
 import { MenuBar } from "@/components/desktop/menu-bar";
+import { WindowLayer } from "@/components/desktop/window-layer";
+import { WindowProvider } from "@/components/desktop/window-manager";
 import { site } from "@/content/site";
 
 const personJsonLd = {
@@ -18,7 +20,7 @@ const personJsonLd = {
 
 export default function Home() {
   return (
-    <>
+    <WindowProvider>
       <MenuBar />
       <main className="relative min-h-dvh overflow-hidden pt-[calc(34px+12vh)] pb-32 desk:p-0">
         {/*
@@ -28,15 +30,16 @@ export default function Home() {
         <div className="desk:absolute desk:inset-0 desk:m-auto desk:aspect-[1512/982] desk:w-[min(100vw,calc(100dvh*1512/982))] desk:[container-type:inline-size]">
           <div className="[--u:calc(100cqw/1512)] desk:absolute desk:inset-0">
             <Hero />
-            <DesktopFolders />
+            <Desktop />
           </div>
         </div>
       </main>
+      <WindowLayer />
       <Dock />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
       />
-    </>
+    </WindowProvider>
   );
 }

@@ -63,40 +63,77 @@
 }
 
 @layer components {
-  /* Window open/close transition for <dialog>, no JS animation library needed. */
-  .mac-window {
+  /* Traffic lights: grey while the window is in the background, colour on hover. */
+  .traffic-lights button {
+    display: grid;
+    place-items: center;
+    border-radius: 9999px;
+    box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.15);
+    transition: background-color 150ms;
+  }
+  .traffic-lights[data-active="false"]:not(:hover):not(:focus-within) button {
+    background-color: #d4d4d4;
+  }
+
+  /* Windows animate their frame when zoomed (green button), but not while being dragged. */
+  .mac-window-frame:not([data-dragging]) {
+    transition:
+      left 340ms var(--ease-out-soft),
+      top 340ms var(--ease-out-soft),
+      width 340ms var(--ease-out-soft),
+      height 340ms var(--ease-out-soft),
+      box-shadow 200ms;
+  }
+
+  /* Dock magnification (scale comes from --s, set per slot). */
+  .dock-slot {
+    transition: width 110ms ease-out;
+  }
+  .dock-icon {
+    transform: scale(var(--s, 1));
+    transition: transform 110ms ease-out;
+  }
+  [data-hovering="false"] .dock-slot,
+  [data-hovering="false"] .dock-icon {
+    transition-duration: 260ms;
+  }
+  .dock-enter {
+    transition: width 300ms var(--ease-out-soft);
+  }
+  @starting-style {
+    .dock-enter {
+      width: 0 !important;
+    }
+  }
+}
+
+@keyframes finder-in {
+  from {
     opacity: 0;
-    transform: scale(0.94) translateY(8px);
-    transition:
-      opacity 220ms var(--ease-out-soft),
-      transform 280ms var(--ease-out-soft),
-      overlay 280ms allow-discrete,
-      display 280ms allow-discrete;
+    transform: translateX(6px);
   }
-  .mac-window[open] {
-    opacity: 1;
-    transform: none;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
   }
-  @starting-style {
-    .mac-window[open] {
-      opacity: 0;
-      transform: scale(0.94) translateY(8px);
-    }
+}
+@keyframes dock-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
   }
-  .mac-window::backdrop {
-    background: rgb(0 0 0 / 0);
-    transition:
-      background 280ms,
-      overlay 280ms allow-discrete,
-      display 280ms allow-discrete;
+  25% {
+    transform: translateY(-18px);
   }
-  .mac-window[open]::backdrop {
-    background: rgb(0 0 0 / 0.12);
+  50% {
+    transform: translateY(0);
   }
-  @starting-style {
-    .mac-window[open]::backdrop {
-      background: rgb(0 0 0 / 0);
-    }
+  70% {
+    transform: translateY(-8px);
+  }
+  85% {
+    transform: translateY(0);
   }
 }
 

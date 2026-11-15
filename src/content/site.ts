@@ -26,84 +26,152 @@ export const site = {
   behance: "https://www.behance.net/softcore",
 } as const;
 
+/* ------------------------------------------------------------------ */
+/* Projects                                                            */
+/* ------------------------------------------------------------------ */
+
+/** A file shown inside a project folder. Images open in Quick Look. */
+export type Media =
+  | { type: "image"; name: string; src: StaticImageData; alt: string }
+  /** `src` is an .mp4/.webm URL or a file in /public (e.g. "/videos/reel.mp4"). */
+  | { type: "video"; name: string; src: string; poster?: StaticImageData }
+  /** Anything that should open in a new tab (Behance case study, YouTube, Vimeo…). */
+  | { type: "link"; name: string; href: string };
+
 export type Project = {
+  id: string;
   title: string;
-  /** Optional cover; put images in src/assets/projects and import them here. */
-  cover?: StaticImageData;
+  /** Files inside the project folder. Leave empty to show the "empty folder" state. */
+  files: Media[];
+  /** Optional link to the full case study. */
   href?: string;
-  year?: string;
 };
 
-export type Folder = {
+/* ------------------------------------------------------------------ */
+/* Desktop folders                                                     */
+/* ------------------------------------------------------------------ */
+
+type DesktopPlacement = {
   id: string;
+  /** Label under the desktop icon. */
   label: string;
   /** Top-left of the icon in the 1512 × 982 Figma frame. */
   x: number;
   y: number;
   /** Label box width in the design, when it differs from the 78px icon. */
   labelWidth?: number;
-  summary: string;
+};
+
+/** Opens the small "About me" utility panel. */
+export type PanelFolder = DesktopPlacement & {
+  kind: "panel";
+  paragraphs: string[];
+};
+
+/** Opens a Finder window. */
+export type FinderFolder = DesktopPlacement & {
+  kind: "finder";
+  /** Name in the Finder sidebar. */
+  sidebarLabel: string;
   projects: Project[];
 };
 
+export type Folder = PanelFolder | FinderFolder;
+
 /**
- * Desktop folders, positioned exactly as in the Figma frame.
- * Add work to each `projects` array, e.g.
- *   { title: "AG Visual identity", cover: agCover, href: "https://www.behance.net/…", year: "2026" }
+ * Adding work: put images in src/assets/projects/<project>/, import them at the top of this
+ * file and list them in a project's `files`, e.g.
+ *
+ *   import agLogo from "@/assets/projects/ag-visual/logo.png";
+ *   …
+ *   { id: "ag-visual", title: "AG visual", files: [
+ *       { type: "image", name: "Logo.png", src: agLogo, alt: "AG Visual logo on black" },
+ *       { type: "link", name: "Case study", href: "https://www.behance.net/gallery/…" },
+ *   ] }
  */
 export const folders: Folder[] = [
   {
+    kind: "panel",
     id: "about",
     label: "About me",
     x: 27.49,
     y: 54,
-    summary:
-      "I’m Hridayesh Neupane — also known as Softcore — a graphic designer and motion artist based in Kirtipur, Kathmandu. Over the last two years I’ve grown from intern to trainee to leaper at Kharaayo, where I also taught design courses, while running a freelance practice across branding, motion graphics, video editing and photography.",
-    projects: [],
+    paragraphs: [
+      "I don’t just edit videos. I create identity.",
+      "I’m Hridayesh Neupane, a video editor and motion artist from Kathmandu. With a background in branding and design, I shape every frame, from color and type to pacing and motion, so your video looks and feels unmistakably like you.",
+      "Let’s build your look.",
+    ],
   },
   {
+    kind: "finder",
     id: "social-media",
     label: "Social media designs",
+    sidebarLabel: "Social media designs",
     x: 849.79,
     y: 179.04,
     labelWidth: 123.04,
-    summary: "Campaign posts, carousels and content systems built for scroll-stopping feeds.",
     projects: [],
   },
   {
+    kind: "finder",
     id: "video-editing",
     label: "Video Editing",
+    sidebarLabel: "Video Edits",
     x: 1066,
     y: 220,
-    summary: "Edits with pace and story, from long-form films to short-form reels.",
     projects: [],
   },
   {
+    kind: "finder",
     id: "branding",
     label: "Branding projects",
+    sidebarLabel: "Branding Projects",
     x: 1084.5,
     y: 383,
-    summary: "Identities, logo systems and brand guidelines.",
-    projects: [],
+    projects: [
+      { id: "ag-visual", title: "AG visual", files: [] },
+      { id: "camp-8586", title: "CAMP 8586", files: [] },
+    ],
   },
   {
+    kind: "finder",
     id: "motion-graphics",
     label: "Motion graphics",
+    sidebarLabel: "Motion Graphics",
     x: 942.5,
     y: 537,
-    summary: "Animated logos, kinetic type and explainers made in After Effects.",
     projects: [],
   },
   {
+    kind: "finder",
     id: "illustration",
     label: "Illustration",
+    sidebarLabel: "Illustration",
     x: 718.35,
     y: 587,
     labelWidth: 118.59,
-    summary: "Digital painting, concept art and editorial illustration.",
     projects: [],
   },
 ];
+
+/** Finder sidebar order, matching the reference window. */
+export const sidebarOrder = [
+  "video-editing",
+  "branding",
+  "motion-graphics",
+  "social-media",
+  "illustration",
+] as const;
+
+export const finderFolders = sidebarOrder.map(
+  (id) => folders.find((f): f is FinderFolder => f.kind === "finder" && f.id === id)!,
+);
+
+export const getFolder = (id: string) => folders.find((f) => f.id === id);
+
+/* ------------------------------------------------------------------ */
+/* Dock                                                                */
+/* ------------------------------------------------------------------ */
 
 export type DockApp = {
   name: string;
@@ -111,10 +179,12 @@ export type DockApp = {
   /** Offset of the rendered icon (which includes its drop shadow) inside the 36px dock slot. */
   top: number;
   href?: string;
+  /** Folder to open in Finder (or the frontmost Finder window, if one is open). */
+  opens?: string;
 };
 
 export const dockApps: DockApp[] = [
-  { name: "Finder", icon: finder, top: 0 },
+  { name: "Finder", icon: finder, top: 0, opens: "video-editing" },
   { name: "Photoshop", icon: photoshop, top: -4.5 },
   { name: "Premiere Pro", icon: premiere, top: -4.92 },
   { name: "Illustrator", icon: illustrator, top: -5 },

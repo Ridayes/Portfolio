@@ -24,10 +24,10 @@ function Status({ children, width }: { children: ReactNode; width: number }) {
 export function MenuBar() {
   return (
     <header className="fixed inset-x-0 top-0 z-30">
-      {/* Progressive blur band from the design (72px, masked to fade out). */}
+      {/* Frosted band behind the menu bar (kept to the bar's height so windows below stay sharp). */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[72px] bg-white/15 backdrop-blur-[30px] [mask-image:linear-gradient(to_bottom,black_30%,transparent)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[34px] bg-white/40 backdrop-blur-[30px]"
       />
       <nav
         aria-label="Primary"
