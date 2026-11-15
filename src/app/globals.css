@@ -50,8 +50,9 @@
   .hero-word > span {
     display: inline-block;
     transform-origin: 50% 80%;
-    -webkit-text-stroke: 0 currentColor;
-    paint-order: stroke fill;
+    /* Resting weight: a hair lighter than the font's own (thin background-coloured edge). */
+    -webkit-text-stroke: 0.006em #fff;
+    paint-order: normal;
     transition:
       transform 500ms var(--ease-out-soft),
       margin 500ms var(--ease-out-soft),
@@ -61,7 +62,7 @@
   @media (hover: hover) and (prefers-reduced-motion: no-preference) {
     /* Everything else while the word is hovered: lighter. */
     .hero-word:hover > span {
-      -webkit-text-stroke: 0.01em #fff;
+      -webkit-text-stroke: 0.012em #fff;
       paint-order: normal;
       transition-duration: 260ms;
     }
