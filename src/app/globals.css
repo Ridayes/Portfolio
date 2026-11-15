@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+/* Scattered "desktop" layout: wide landscape screens only; everything else gets the stacked layout. */
+@custom-variant desk (@media (min-width: 64rem) and (orientation: landscape));
+
+@theme {
+  --font-system:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  /* Avenir ships with macOS/iOS; Nunito Sans is the self-hosted fallback elsewhere. */
+  --font-sans: "Avenir", "Avenir Next", var(--font-nunito), ui-sans-serif, sans-serif;
+  --font-display: var(--font-instrument), "Times New Roman", serif;
+
+  --color-ink: #000;
+  --color-selection: #0a64d8;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-rise: rise 700ms var(--ease-out-soft) both;
+  --animate-pop: pop 520ms var(--ease-out-soft) both;
+  --animate-dock: dock 650ms var(--ease-out-soft) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+  }
+  @keyframes dock {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    background: #fff;
+    color: var(--color-ink);
+  }
+
+  body {
+    font-family: var(--font-system);
+    /* Staggered dot grid from the Figma background (black dots at 6% on white). */
+    background-color: #fff;
+    background-image:
+      radial-gradient(circle at 13px 6.5px, rgb(0 0 0 / 0.07) 1.9px, transparent 2.5px),
+      radial-gradient(circle at 4px 17.5px, rgb(0 0 0 / 0.07) 1.9px, transparent 2.5px);
+    background-size: 18px 22px;
+  }
+
+  ::selection {
+    background: rgb(10 100 216 / 0.2);
+  }
+}
+
+@layer components {
+  /* Window open/close transition for <dialog>, no JS animation library needed. */
+  .mac-window {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+    transition:
+      opacity 220ms var(--ease-out-soft),
+      transform 280ms var(--ease-out-soft),
+      overlay 280ms allow-discrete,
+      display 280ms allow-discrete;
+  }
+  .mac-window[open] {
+    opacity: 1;
+    transform: none;
+  }
+  @starting-style {
+    .mac-window[open] {
+      opacity: 0;
+      transform: scale(0.94) translateY(8px);
+    }
+  }
+  .mac-window::backdrop {
+    background: rgb(0 0 0 / 0);
+    transition:
+      background 280ms,
+      overlay 280ms allow-discrete,
+      display 280ms allow-discrete;
+  }
+  .mac-window[open]::backdrop {
+    background: rgb(0 0 0 / 0.12);
+  }
+  @starting-style {
+    .mac-window[open]::backdrop {
+      background: rgb(0 0 0 / 0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
+}
