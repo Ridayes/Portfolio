@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, type PointerEvent, type ReactNode, type RefObject } from "react";
 
 import finderFolder from "@/assets/system/finder-folder.png";
 import { dockApps, dockUtilities, getFolder, type DockApp } from "@/content/site";
@@ -9,14 +9,96 @@ import { dockApps, dockUtilities, getFolder, type DockApp } from "@/content/site
 import { useWindows } from "./window-manager";
 
 const SLOT = 36;
-const MAX_SCALE = 1.6;
-const RANGE = 120; // px from the cursor where magnification fades out
+/** Like the reference dock: sizes interpolate linearly from 1× at ±RANGE px to MAX_SCALE at the cursor… */
+const MAX_SCALE = 1.75;
+const RANGE = 150;
+/** …and each slot chases its target size on a spring (same feel as framer-motion's useSpring). */
+const SPRING = { mass: 0.1, stiffness: 120, damping: 14 };
 
+/**
+ * Spring-driven dock magnification without a motion library. Each frame it measures every slot's
+ * live centre (like the reference), works out its target scale from the cursor distance, and
+ * steps a spring towards it, writing width and --s straight to the DOM (no React re-renders).
+ */
+function useDockMagnification(list: RefObject<HTMLUListElement | null>) {
+  const mouseX = useRef(Infinity);
+  const springs = useRef(new Map<HTMLElement, { s: number; v: number }>());
+  const frame = useRef<number | null>(null);
+  const last = useRef(0);
+  const enabled = useRef(false);
+
+  useEffect(() => {
+    const mq = matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)");
+    const sync = () => (enabled.current = mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => {
+      mq.removeEventListener("change", sync);
+      if (frame.current) cancelAnimationFrame(frame.current);
+    };
+  }, []);
+
+  function tick(now: number) {
+    const dt = Math.min((now - last.current) / 1000, 1 / 30);
+    last.current = now;
+    let moving = false;
+
+    for (const el of list.current?.querySelectorAll<HTMLElement>(".dock-slot") ?? []) {
+      const state = springs.current.get(el) ?? { s: 1, v: 0 };
+      const r = el.getBoundingClientRect();
+      const d = Math.abs(mouseX.current - (r.left + r.width / 2));
+      const target = 1 + (MAX_SCALE - 1) * Math.max(0, 1 - d / RANGE);
+
+      // Semi-implicit Euler in small sub-steps keeps the stiff spring stable.
+      const steps = 8;
+      const h = dt / steps;
+      for (let i = 0; i < steps; i++) {
+        const a = (SPRING.stiffness * (target - state.s) - SPRING.damping * state.v) / SPRING.mass;
+        state.v += a * h;
+        state.s += state.v * h;
+      }
+      if (Math.abs(target - state.s) < 0.001 && Math.abs(state.v) < 0.01) {
+        state.s = target;
+        state.v = 0;
+      } else moving = true;
+
+      springs.current.set(el, state);
+      el.style.width = `${SLOT * state.s}px`;
+      el.style.setProperty("--s", String(state.s));
+    }
+
+    frame.current = moving ? requestAnimationFrame(tick) : null;
+  }
+
+  function kick() {
+    if (frame.current !== null) return;
+    last.current = performance.now();
+    frame.current = requestAnimationFrame(tick);
+  }
+
+  return {
+    onPointerMove(e: PointerEvent) {
+      if (e.pointerType !== "mouse" || !enabled.current) return;
+      mouseX.current = e.clientX;
+      kick();
+    },
+    onPointerLeave() {
+      mouseX.current = Infinity;
+      kick();
+    },
+  };
+}
+
+/**
+ * App name above the icon (like the reference: fades in while sliding up 10px). It sits above the
+ * icon's *magnified* height (--s is the slot's live scale), so the enlarged icon never covers it.
+ */
 function Tooltip({ label }: { label: string }) {
   return (
     <span
       aria-hidden="true"
-      className="pointer-events-none absolute bottom-full left-1/2 mb-3 -translate-x-1/2 translate-y-1 rounded-md bg-white/90 px-2.5 py-1 text-[12px] font-medium whitespace-nowrap text-ink opacity-0 shadow-[0_2px_10px_rgb(0_0_0/0.15)] ring-[0.5px] ring-black/10 backdrop-blur transition duration-150 group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100"
+      style={{ bottom: "calc(var(--s, 1) * 36px + 10px)" }}
+      className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 translate-y-2.5 rounded-md bg-[#e8e8e8]/95 px-2 py-0.5 text-[12px] leading-[18px] font-medium whitespace-nowrap text-neutral-800 opacity-0 shadow-[0_2px_8px_rgb(0_0_0/0.18)] ring-[0.5px] ring-black/10 backdrop-blur transition-[opacity,translate] duration-200 ease-out group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100"
     >
       {label}
     </span>
@@ -25,7 +107,6 @@ function Tooltip({ label }: { label: string }) {
 
 type ItemProps = {
   label: string;
-  scale: number;
   running?: boolean;
   bounceKey?: number;
   id?: string;
@@ -34,13 +115,9 @@ type ItemProps = {
 };
 
 /** One dock slot. Width grows with the magnification so neighbours make room, like macOS. */
-function Slot({ label, scale, running, bounceKey, id, className = "", children }: ItemProps) {
+function Slot({ label, running, bounceKey, id, className = "", children }: ItemProps) {
   return (
-    <li
-      id={id}
-      className={`dock-slot group relative h-9 shrink-0 ${className}`}
-      style={{ width: SLOT * scale, ["--s" as string]: scale }}
-    >
+    <li id={id} className={`dock-slot group relative h-9 shrink-0 hover:z-10 focus-within:z-10 ${className}`} style={{ width: SLOT }}>
       <Tooltip label={label} />
       <span
         key={bounceKey}
@@ -61,38 +138,11 @@ function AppIcon({ app }: { app: DockApp }) {
   );
 }
 
-/** Dock: macOS fish-eye magnification, launch bounce, running dots and minimised windows. */
+/** Dock: spring-driven magnification (after the reference FloatingDock), launch bounce, running dots and minimised windows. */
 export function Dock() {
   const { windows, open, restore, focus, launches } = useWindows();
   const list = useRef<HTMLUListElement>(null);
-  // Slot centres are measured once when the pointer enters (unmagnified), then reused.
-  const [centers, setCenters] = useState<number[]>([]);
-  const [mouseX, setMouseX] = useState<number | null>(null);
-  const [magnify, setMagnify] = useState(false);
-
-  useEffect(() => {
-    const mq = matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)");
-    const sync = () => setMagnify(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-
-  const measure = useCallback(() => {
-    setCenters(
-      Array.from(list.current?.querySelectorAll<HTMLElement>(".dock-slot") ?? []).map((el) => {
-        const r = el.getBoundingClientRect();
-        return r.left + r.width / 2;
-      }),
-    );
-  }, []);
-
-  const scaleAt = (i: number) => {
-    if (!magnify || mouseX === null || centers[i] === undefined) return 1;
-    const d = Math.abs(mouseX - centers[i]);
-    const t = Math.max(0, 1 - (d / RANGE) ** 2);
-    return 1 + (MAX_SCALE - 1) * t;
-  };
+  const magnify = useDockMagnification(list);
 
   const finders = windows.filter((w) => w.kind === "finder");
   const minimized = windows.filter((w) => ["minimizing", "minimized", "restoring"].includes(w.status));
@@ -106,21 +156,12 @@ export function Dock() {
     } else open(app.opens, el);
   }
 
-  let slot = 0;
-  const next = () => scaleAt(slot++);
-
   return (
     <footer className="pointer-events-none fixed inset-x-0 bottom-[5px] z-20 flex justify-center">
       <div
         className="pointer-events-auto relative origin-bottom animate-dock px-2 pt-2.5 pb-[11px] [animation-delay:500ms] max-sm:scale-[0.62]"
-        onPointerEnter={(e: PointerEvent) => {
-          if (e.pointerType !== "mouse") return;
-          measure();
-          setMouseX(e.clientX);
-        }}
-        onPointerMove={(e: PointerEvent) => e.pointerType === "mouse" && setMouseX(e.clientX)}
-        onPointerLeave={() => setMouseX(null)}
-        data-hovering={mouseX !== null}
+        onPointerMove={magnify.onPointerMove}
+        onPointerLeave={magnify.onPointerLeave}
       >
         <div
           aria-hidden="true"
@@ -128,14 +169,12 @@ export function Dock() {
         />
         <ul ref={list} aria-label="Dock" className="relative flex items-end gap-[9px]">
           {dockApps.map((app) => {
-            const s = next();
             const isFinder = !!app.opens;
             const inner = <AppIcon app={app} />;
             return (
               <Slot
                 key={app.name}
                 label={app.name}
-                scale={s}
                 running={isFinder && finders.length > 0}
                 bounceKey={isFinder ? launches : undefined}
               >
@@ -161,7 +200,7 @@ export function Dock() {
           {minimized.map((win) => {
             const folder = getFolder(win.id);
             return (
-              <Slot key={win.id} id={`dock-window-${win.id}`} label={folder?.label ?? ""} scale={next()} className="dock-enter">
+              <Slot key={win.id} id={`dock-window-${win.id}`} label={folder?.label ?? ""} className="dock-enter">
                 <button
                   type="button"
                   aria-label={`Restore ${folder?.label}`}
@@ -175,7 +214,7 @@ export function Dock() {
           })}
 
           {dockUtilities.map((app) => (
-            <Slot key={app.name} label={app.name} scale={next()}>
+            <Slot key={app.name} label={app.name}>
               <span role="img" aria-label={app.name}>
                 <AppIcon app={app} />
               </span>

@@ -40,6 +40,49 @@
   }
 }
 
+/* Hero hover (after the reference video): the letter under the cursor gets heavier and wider,
+   its neighbours a little, and the rest of the word goes lighter, so a bold wave follows the
+   pointer across "portfolio". With no hover every letter stays at the normal weight.
+   Instrument Serif has one weight, so heavier = an outline in the text colour drawn under the
+   letter, lighter = a thin outline in the background colour drawn over its edges; width comes
+   from a horizontal stretch plus extra side margin that pushes the other letters along. */
+@layer components {
+  .hero-word > span {
+    display: inline-block;
+    transform-origin: 50% 80%;
+    -webkit-text-stroke: 0 currentColor;
+    paint-order: stroke fill;
+    transition:
+      transform 500ms var(--ease-out-soft),
+      margin 500ms var(--ease-out-soft),
+      -webkit-text-stroke-width 500ms var(--ease-out-soft),
+      -webkit-text-stroke-color 500ms var(--ease-out-soft);
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    /* Everything else while the word is hovered: lighter. */
+    .hero-word:hover > span {
+      -webkit-text-stroke: 0.01em #fff;
+      paint-order: normal;
+      transition-duration: 260ms;
+    }
+    .hero-word > span:hover {
+      -webkit-text-stroke: 0.012em currentColor;
+      paint-order: stroke fill;
+      transform: scaleX(1.2);
+      margin-inline: 0.02em;
+      transition-duration: 160ms;
+    }
+    .hero-word > span:hover + span,
+    .hero-word > span:has(+ span:hover) {
+      -webkit-text-stroke: 0.005em currentColor;
+      paint-order: stroke fill;
+      transform: scaleX(1.08);
+      margin-inline: 0.006em;
+      transition-duration: 200ms;
+    }
+  }
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
@@ -85,17 +128,9 @@
       box-shadow 200ms;
   }
 
-  /* Dock magnification (scale comes from --s, set per slot). */
-  .dock-slot {
-    transition: width 110ms ease-out;
-  }
+  /* Dock magnification: --s and the slot width are driven by a spring in dock.tsx. */
   .dock-icon {
     transform: scale(var(--s, 1));
-    transition: transform 110ms ease-out;
-  }
-  [data-hovering="false"] .dock-slot,
-  [data-hovering="false"] .dock-icon {
-    transition-duration: 260ms;
   }
   .dock-enter {
     transition: width 300ms var(--ease-out-soft);
