@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import finderFolder from "@/assets/system/finder-folder.png";
-import { finderFolders, getFolder, site, type FinderFolder, type Media, type Project } from "@/content/site";
+import { getProjects, vimeoEmbedUrl, type Project } from "@/content/projects";
+import { finderFolders, getFolder, site, type FinderFolder } from "@/content/site";
 
 import {
   ArchiveIcon,
@@ -12,7 +13,6 @@ import {
   ChevronRight,
   ComposeIcon,
   FolderOutline,
-  LinkDoc,
   NewFolderIcon,
   PlayGlyph,
   SearchGlyph,
@@ -24,21 +24,12 @@ import { QuickLook } from "./quick-look";
 import { TrafficLights } from "./traffic-lights";
 import { useWindows, type WindowState } from "./window-manager";
 
-/** "branding" (a category) or "branding/ag-visual" (a project inside it). */
+/** A folder id, e.g. "branding". */
 type Location = string;
 
-type Item =
-  | { key: string; kind: "project"; name: string; project: Project }
-  | { key: string; kind: "file"; name: string; file: Media };
-
 function resolve(location: Location) {
-  const [folderId, projectId] = location.split("/");
-  const folder = getFolder(folderId) as FinderFolder;
-  const project = projectId ? folder.projects.find((p) => p.id === projectId) : undefined;
-  const items: Item[] = project
-    ? project.files.map((file, i) => ({ key: `${i}-${file.name}`, kind: "file", name: file.name, file }))
-    : folder.projects.map((p) => ({ key: p.id, kind: "project", name: p.title, project: p }));
-  return { folder, project, title: project?.title ?? folder.sidebarLabel, items };
+  const folder = getFolder(location) as FinderFolder;
+  return { folder, title: folder.sidebarLabel, items: getProjects(folder.id) };
 }
 
 const pill =
@@ -52,28 +43,24 @@ export function FinderWindow({ win, active, zIndex }: { win: WindowState; active
   // Back/forward history, like Finder.
   const [history, setHistory] = useState<{ stack: Location[]; index: number }>({ stack: [win.id], index: 0 });
   const location = history.stack[history.index];
-  const { folder, project, title, items } = resolve(location);
+  const { folder, title, items } = resolve(location);
 
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ index: number; from: DOMRect | null } | null>(null);
   const pointerType = useRef<string>("mouse");
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? items.filter((i) => i.name.toLowerCase().includes(q)) : items;
+    return q ? items.filter((p) => p.title.toLowerCase().includes(q)) : items;
   }, [items, query]);
 
-  type FileItem = Extract<Item, { kind: "file" }> & { file: Exclude<Media, { type: "link" }> };
-  const previewable = visible.filter(
-    (i): i is FileItem => i.kind === "file" && i.file.type !== "link",
-  );
+  // Video projects in this folder, for the Quick Look player (←/→ flips between them).
+  const videos = visible.filter((p) => vimeoEmbedUrl(p.vimeo));
 
   function go(next: Location) {
     if (next === location) return;
     setHistory(({ stack, index }) => ({ stack: [...stack.slice(0, index + 1), next], index: index + 1 }));
     setQuery("");
-    setSelected(null);
   }
 
   const canBack = history.index > 0;
@@ -81,26 +68,14 @@ export function FinderWindow({ win, active, zIndex }: { win: WindowState; active
   const step = (delta: number) => {
     setHistory((h) => ({ ...h, index: Math.min(Math.max(h.index + delta, 0), h.stack.length - 1) }));
     setQuery("");
-    setSelected(null);
   };
 
-  function openItem(item: Item, el: HTMLElement | null) {
-    if (item.kind === "project") return go(`${folder.id}/${item.project.id}`);
-    if (item.file.type === "link") return void window.open(item.file.href, "_blank", "noopener,noreferrer");
-    const index = previewable.findIndex((p) => p.key === item.key);
-    setPreview({ index, from: el?.getBoundingClientRect() ?? null });
-  }
-
-  function onItemClick(item: Item, e: MouseEvent<HTMLButtonElement>) {
-    // Mouse: click selects, double-click opens (like Finder). Touch and keyboard open right away.
-    if (pointerType.current === "touch" || e.detail === 0) openItem(item, e.currentTarget);
-    else setSelected(item.key);
-  }
-
-  function onItemKey(item: Item, e: KeyboardEvent<HTMLButtonElement>) {
-    if (e.key === " " && item.kind === "file") {
-      e.preventDefault();
-      openItem(item, e.currentTarget);
+  /** Vimeo projects play in Quick Look; everything else opens its Behance page. */
+  function openProject(project: Project, el: HTMLElement | null) {
+    if (vimeoEmbedUrl(project.vimeo)) {
+      setPreview({ index: videos.findIndex((v) => v.id === project.id), from: el?.getBoundingClientRect() ?? null });
+    } else if (project.behance) {
+      window.open(project.behance, "_blank", "noopener,noreferrer");
     }
   }
 
@@ -164,7 +139,7 @@ export function FinderWindow({ win, active, zIndex }: { win: WindowState; active
                     <button
                       type="button"
                       onClick={() => go(f.id)}
-                      aria-current={current && !project ? "page" : undefined}
+                      aria-current={current ? "page" : undefined}
                       className="relative flex h-6 w-full items-center gap-[6px] rounded-[6px] px-[6px] text-left text-[12px] font-medium text-[#1d1d1f] outline-offset-[-2px]"
                     >
                       <span className={current ? "text-[#2f7fdc]" : "text-[#1d1d1f]"}>
@@ -234,23 +209,14 @@ export function FinderWindow({ win, active, zIndex }: { win: WindowState; active
             {/* Contents */}
             <div
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-              onPointerDown={(e: PointerEvent) => {
-                pointerType.current = e.pointerType;
-                if (e.target === e.currentTarget) setSelected(null);
-              }}
+              onPointerDown={(e: PointerEvent) => (pointerType.current = e.pointerType)}
             >
               <div key={location} className="animate-[finder-in_260ms_var(--ease-out-soft)] px-2 pt-[22px] pb-28 sm:px-4 sm:pb-6">
                 {visible.length > 0 ? (
-                  <ul className="grid grid-cols-[repeat(auto-fill,90px)] gap-y-3" aria-label={`Contents of ${title}`}>
-                    {visible.map((item) => (
-                      <li key={item.key}>
-                        <ItemTile
-                          item={item}
-                          selected={selected === item.key}
-                          onClick={(e) => onItemClick(item, e)}
-                          onDoubleClick={(e) => openItem(item, e.currentTarget)}
-                          onKeyDown={(e) => onItemKey(item, e)}
-                        />
+                  <ul className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-2 gap-y-5 max-sm:grid-cols-2" aria-label={`Contents of ${title}`}>
+                    {visible.map((project) => (
+                      <li key={project.id}>
+                        <ProjectTile project={project} onOpen={(el) => openProject(project, el)} />
                       </li>
                     ))}
                   </ul>
@@ -261,7 +227,7 @@ export function FinderWindow({ win, active, zIndex }: { win: WindowState; active
                     ) : (
                       <>
                         <p>This folder is empty — new work is on its way.</p>
-                        <a href={project?.href ?? site.behance} target="_blank" rel="noopener noreferrer" className="text-selection hover:underline">
+                        <a href={site.behance} target="_blank" rel="noopener noreferrer" className="text-selection hover:underline">
                           See more on Behance
                         </a>
                       </>
@@ -274,9 +240,9 @@ export function FinderWindow({ win, active, zIndex }: { win: WindowState; active
         </div>
       </div>
 
-      {preview && previewable.length > 0 && (
+      {preview && videos[preview.index] && (
         <QuickLook
-          files={previewable.map((p) => p.file)}
+          videos={videos}
           index={preview.index}
           from={preview.from}
           onIndexChange={(index) => setPreview({ index, from: null })}
@@ -287,67 +253,45 @@ export function FinderWindow({ win, active, zIndex }: { win: WindowState; active
   );
 }
 
-function ItemTile({
-  item,
-  selected,
-  onClick,
-  onDoubleClick,
-  onKeyDown,
-}: {
-  item: Item;
-  selected: boolean;
-  onClick: (e: MouseEvent<HTMLButtonElement>) => void;
-  onDoubleClick: (e: MouseEvent<HTMLButtonElement>) => void;
-  onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => void;
-}) {
-  const hint =
-    item.kind === "project" ? "Folder" : item.file.type === "link" ? "Opens in a new tab" : "Press Space to preview";
+/**
+ * A project in the Finder grid: its thumbnail (or a folder icon) and title. One click opens it —
+ * the Vimeo player for video projects, otherwise the Behance page in a new tab.
+ */
+function ProjectTile({ project, onOpen }: { project: Project; onOpen: (el: HTMLElement) => void }) {
+  const isVideo = !!vimeoEmbedUrl(project.vimeo);
+  const hint = isVideo ? "Play video" : project.behance ? "Open on Behance" : "Coming soon";
+  const disabled = !isVideo && !project.behance;
+
   return (
     <button
       type="button"
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      onKeyDown={onKeyDown}
-      aria-pressed={selected}
+      onClick={(e) => onOpen(e.currentTarget)}
+      aria-disabled={disabled}
       title={hint}
-      className="group flex w-[90px] cursor-default flex-col items-center gap-[3px] outline-none select-none"
+      aria-label={`${project.title} — ${hint}`}
+      className="group flex w-full cursor-pointer flex-col items-center gap-1.5 outline-none select-none aria-disabled:cursor-default"
     >
-      <span
-        className={`grid h-[60px] w-[72px] place-items-center rounded-[6px] transition-colors duration-150 group-focus-visible:bg-black/8 ${selected ? "bg-black/8" : ""}`}
-      >
-        <Thumb item={item} />
+      <span className="relative grid aspect-[4/3] w-full max-w-[168px] place-items-center rounded-[10px] p-1.5 transition-colors duration-150 group-hover:bg-black/5 group-focus-visible:bg-black/8">
+        {project.thumbnail ? (
+          <span className="relative block size-full overflow-hidden rounded-[6px] shadow-[0_0_0_0.5px_rgb(0_0_0/0.15),0_2px_6px_rgb(0_0_0/0.18)] transition-transform duration-200 ease-out-soft group-hover:scale-[1.03] group-active:scale-[0.97]">
+            <Image src={project.thumbnail} alt="" fill sizes="(max-width: 640px) 45vw, 168px" className="object-cover" />
+          </span>
+        ) : (
+          <Image
+            src={finderFolder}
+            alt=""
+            className="h-[78%] w-auto transition-transform duration-200 ease-out-soft group-hover:scale-105 group-active:scale-95"
+          />
+        )}
+        {isVideo && (
+          <span className="absolute right-3 bottom-3">
+            <PlayGlyph />
+          </span>
+        )}
       </span>
-      <span
-        className={`max-w-[86px] rounded-[4px] px-1 text-center text-[11px] leading-[14px] font-semibold break-words transition-colors ${selected ? "bg-selection text-white" : "text-[#1d1d1f] group-focus-visible:bg-selection group-focus-visible:text-white"}`}
-      >
-        {item.name}
+      <span className="max-w-[160px] rounded-[4px] px-1.5 text-center text-[12px] leading-[16px] font-semibold break-words text-[#1d1d1f] transition-colors group-focus-visible:bg-selection group-focus-visible:text-white">
+        {project.title}
       </span>
     </button>
   );
-}
-
-function Thumb({ item }: { item: Item }) {
-  if (item.kind === "project") {
-    return <Image src={finderFolder} alt="" className="h-[56px] w-auto transition-transform duration-200 ease-out-soft group-active:scale-95" />;
-  }
-  const { file } = item;
-  if (file.type === "image") {
-    return (
-      <Image
-        src={file.src}
-        alt=""
-        sizes="64px"
-        className="max-h-[54px] w-auto max-w-[64px] rounded-[3px] object-contain shadow-[0_0_0_0.5px_rgb(0_0_0/0.15),0_1px_3px_rgb(0_0_0/0.15)]"
-      />
-    );
-  }
-  if (file.type === "video") {
-    return (
-      <span className="relative grid h-[44px] w-[64px] place-items-center overflow-hidden rounded-[3px] bg-[#1d1d1f] shadow-[0_1px_3px_rgb(0_0_0/0.2)]">
-        {file.poster && <Image src={file.poster} alt="" fill sizes="64px" className="object-cover" />}
-        <span className="relative"><PlayGlyph /></span>
-      </span>
-    );
-  }
-  return <LinkDoc />;
 }

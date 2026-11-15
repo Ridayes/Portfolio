@@ -27,27 +27,6 @@ export const site = {
 } as const;
 
 /* ------------------------------------------------------------------ */
-/* Projects                                                            */
-/* ------------------------------------------------------------------ */
-
-/** A file shown inside a project folder. Images open in Quick Look. */
-export type Media =
-  | { type: "image"; name: string; src: StaticImageData; alt: string }
-  /** `src` is an .mp4/.webm URL or a file in /public (e.g. "/videos/reel.mp4"). */
-  | { type: "video"; name: string; src: string; poster?: StaticImageData }
-  /** Anything that should open in a new tab (Behance case study, YouTube, Vimeo…). */
-  | { type: "link"; name: string; href: string };
-
-export type Project = {
-  id: string;
-  title: string;
-  /** Files inside the project folder. Leave empty to show the "empty folder" state. */
-  files: Media[];
-  /** Optional link to the full case study. */
-  href?: string;
-};
-
-/* ------------------------------------------------------------------ */
 /* Desktop folders                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -68,27 +47,15 @@ export type PanelFolder = DesktopPlacement & {
   paragraphs: string[];
 };
 
-/** Opens a Finder window. */
+/** Opens a Finder window. Its projects live in projects.json (edit them at /admin). */
 export type FinderFolder = DesktopPlacement & {
   kind: "finder";
   /** Name in the Finder sidebar. */
   sidebarLabel: string;
-  projects: Project[];
 };
 
 export type Folder = PanelFolder | FinderFolder;
 
-/**
- * Adding work: put images in src/assets/projects/<project>/, import them at the top of this
- * file and list them in a project's `files`, e.g.
- *
- *   import agLogo from "@/assets/projects/ag-visual/logo.png";
- *   …
- *   { id: "ag-visual", title: "AG visual", files: [
- *       { type: "image", name: "Logo.png", src: agLogo, alt: "AG Visual logo on black" },
- *       { type: "link", name: "Case study", href: "https://www.behance.net/gallery/…" },
- *   ] }
- */
 export const folders: Folder[] = [
   {
     kind: "panel",
@@ -110,7 +77,6 @@ export const folders: Folder[] = [
     x: 849.79,
     y: 179.04,
     labelWidth: 123.04,
-    projects: [],
   },
   {
     kind: "finder",
@@ -119,7 +85,6 @@ export const folders: Folder[] = [
     sidebarLabel: "Video Edits",
     x: 1066,
     y: 220,
-    projects: [],
   },
   {
     kind: "finder",
@@ -128,10 +93,6 @@ export const folders: Folder[] = [
     sidebarLabel: "Branding Projects",
     x: 1084.5,
     y: 383,
-    projects: [
-      { id: "ag-visual", title: "AG visual", files: [] },
-      { id: "camp-8586", title: "CAMP 8586", files: [] },
-    ],
   },
   {
     kind: "finder",
@@ -140,7 +101,6 @@ export const folders: Folder[] = [
     sidebarLabel: "Motion Graphics",
     x: 942.5,
     y: 537,
-    projects: [],
   },
   {
     kind: "finder",
@@ -150,7 +110,6 @@ export const folders: Folder[] = [
     x: 718.35,
     y: 587,
     labelWidth: 118.59,
-    projects: [],
   },
 ];
 

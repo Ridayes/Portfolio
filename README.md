@@ -28,7 +28,9 @@ It works like a small macOS desktop:
 
 | Path | What it is |
 | --- | --- |
-| `src/content/site.ts` | **All content:** name, links, folder positions, About text, projects and their files, dock apps |
+| `src/content/site.ts` | Name, links, folder positions, About text, dock apps |
+| `src/content/projects.json` | Projects in each Finder folder (edited by the admin panel) |
+| `src/app/admin/` | Local admin panel |
 | `src/components/desktop/window-manager.tsx` | Window state: open / close / focus / minimise / zoom / move |
 | `src/components/desktop/mac-window.tsx` | Window frame: dragging and the open, close, minimise and restore animations |
 | `src/components/desktop/finder-window.tsx` | Finder: sidebar, toolbar, history, search, file grid |
@@ -39,22 +41,18 @@ It works like a small macOS desktop:
 | `src/app/globals.css` | Theme tokens, dot-grid background, keyframes, the `desk:` breakpoint |
 | `src/assets/` | Icons exported from Figma and the reference images |
 
-### Adding work
+### Adding work (admin panel)
 
-1. Put files in `src/assets/projects/<project>/`, e.g. `src/assets/projects/ag-visual/logo.png`.
-2. In `src/content/site.ts`, import them and list them in the project's `files`:
+1. Run `npm run dev` and open **http://localhost:3000/admin**.
+2. Pick a folder (Video Edits, Branding Projects…) and click **+ Add project**.
+3. Give it a title and either:
+   - a **Behance link**, so clicking the project opens the case study in a new tab, or
+   - a **Vimeo link**, so clicking it plays the video in a Quick Look player (the player also shows "View on Behance" if you add both).
+4. Click the thumbnail box to upload or drop an image, or leave it empty to show a folder icon.
+5. Press **Save** (⌘S). This writes `src/content/projects.json` and puts thumbnails in `public/projects/`.
+6. Commit and push. Vercel redeploys the live site.
 
-```ts
-import agLogo from "@/assets/projects/ag-visual/logo.png";
-// …
-{ id: "ag-visual", title: "AG visual", files: [
-  { type: "image", name: "Logo.png", src: agLogo, alt: "AG Visual logo on black" },
-  { type: "video", name: "Reel.mp4", src: "/videos/ag-reel.mp4" },          // file in /public/videos
-  { type: "link", name: "Case study", href: "https://www.behance.net/gallery/…" },
-] }
-```
-
-To add a new project folder, add `{ id, title, files: [] }` to a category's `projects`. A folder with no files shows an empty state that links to Behance.
+The admin page and its API only exist while running `npm run dev`. On the deployed site they return 404.
 
 ## Layout
 
