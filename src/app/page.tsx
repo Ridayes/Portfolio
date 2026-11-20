@@ -4,19 +4,40 @@ import { Hero } from "@/components/desktop/hero";
 import { MenuBar } from "@/components/desktop/menu-bar";
 import { WindowLayer } from "@/components/desktop/window-layer";
 import { WindowProvider } from "@/components/desktop/window-manager";
-import { site } from "@/content/site";
+import { getProjects } from "@/content/projects";
+import { finderFolders, site } from "@/content/site";
+import { structuredData } from "@/lib/structured-data";
 
-const personJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Person",
-  name: site.name,
-  alternateName: site.alias,
-  jobTitle: site.role,
-  url: site.url,
-  email: `mailto:${site.email}`,
-  sameAs: [site.behance],
-  address: { "@type": "PostalAddress", addressLocality: "Kathmandu", addressCountry: "NP" },
-};
+/**
+ * Projects only appear inside Finder windows after a click, so this list repeats them for screen
+ * readers (and, as a side effect, search engines). It is visually hidden, not hidden from either.
+ */
+function WorkIndex() {
+  return (
+    <nav aria-label="Selected work" className="sr-only">
+      <h2>Selected work</h2>
+      {finderFolders.map((folder) => {
+        const list = getProjects(folder.id);
+        if (list.length === 0) return null;
+        return (
+          <section key={folder.id}>
+            <h3>{folder.sidebarLabel}</h3>
+            <ul>
+              {list.map((p) => (
+                <li key={p.id}>
+                  {p.behance ? <a href={p.behance}>{p.title}</a> : p.title}
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+      <p>
+        More work on <a href={site.behance}>Behance</a>. Contact: <a href={`mailto:${site.email}`}>{site.email}</a>
+      </p>
+    </nav>
+  );
+}
 
 export default function Home() {
   return (
@@ -33,12 +54,13 @@ export default function Home() {
             <Desktop />
           </div>
         </div>
+        <WorkIndex />
       </main>
       <WindowLayer />
       <Dock />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData()).replace(/</g, "\\u003c") }}
       />
     </WindowProvider>
   );

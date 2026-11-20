@@ -1,0 +1,19 @@
+import type { MetadataRoute } from "next";
+
+import { site } from "@/content/site";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: site.seoTitle,
+    short_name: site.title,
+    description: site.description,
+    start_url: "/",
+    display: "standalone",
+    background_color: "#ffffff",
+    theme_color: "#ffffff",
+    icons: [
+      { src: "/icon", sizes: "64x64", type: "image/png" },
+      { src: "/apple-icon", sizes: "180x180", type: "image/png" },
+    ],
+  };
+}

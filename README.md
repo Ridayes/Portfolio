@@ -54,6 +54,15 @@ It works like a small macOS desktop:
 
 The admin page and its API only exist while running `npm run dev`. On the deployed site they return 404.
 
+## SEO
+
+- **Title, description, keywords, canonical URL, Open Graph and Twitter tags** are set in `src/app/layout.tsx` from `src/content/site.ts` (`seoTitle`, `description`, `url`).
+- **Link-preview image** (`src/app/opengraph-image.tsx`) and **favicon / iPhone icon** (`icon.tsx`, `apple-icon.tsx`) are generated at build time.
+- **Structured data** (`src/lib/structured-data.ts`) tells Google who you are and lists every project from `projects.json`, including Vimeo videos.
+- **Sitemap** (`/sitemap.xml`) includes your project thumbnails for Google Images; `robots.txt` hides `/admin`.
+- **Own domain:** set `NEXT_PUBLIC_SITE_URL` in Vercel (e.g. `https://softcore.design`) and redeploy.
+- **Google Search Console:** add the site there, copy the HTML-tag verification code into a `GOOGLE_SITE_VERIFICATION` env var in Vercel, redeploy, then submit `https://<your-site>/sitemap.xml`.
+
 ## Layout
 
 - **Wide landscape screens (`desk:` = ≥1024px and landscape):** the Figma frame’s composition, scaled to fit. `--u` equals one Figma pixel, so the layout matches the design 1:1 at 1512 × 982.

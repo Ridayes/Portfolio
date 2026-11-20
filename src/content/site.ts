@@ -19,9 +19,12 @@ export const site = {
   title: "Hridayesh’s Portfolio",
   role: "Graphic designer & motion artist",
   location: "Kirtipur, Kathmandu, Nepal",
+  /** Used for the page title, Google results and link previews. */
+  seoTitle: "Hridayesh Neupane — Graphic Designer & Motion Artist, Kathmandu",
   description:
-    "Portfolio of Hridayesh Neupane (Softcore) — graphic designer and motion artist from Kathmandu, Nepal, working across branding, motion graphics, video editing, illustration and social media design.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+    "Portfolio of Hridayesh Neupane (Softcore), a graphic designer, motion artist and video editor from Kathmandu, Nepal. Branding, motion graphics, video editing, social media design and illustration.",
+  /** Live address. Set NEXT_PUBLIC_SITE_URL in Vercel when you move to your own domain. */
+  url: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://hridayesh-ten.vercel.app").replace(/\/$/, ""),
   email: "ridayesh02@gmail.com",
   behance: "https://www.behance.net/softcore",
 } as const;

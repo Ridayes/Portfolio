@@ -7,6 +7,8 @@ const WORD = "portfolio";
 export function Hero() {
   return (
     <h1 className="relative z-10 flex flex-col items-center text-ink select-none desk:absolute desk:top-[calc(266.09*var(--u))] desk:left-[calc(218.96*var(--u))] desk:block desk:w-[calc(875.09*var(--u))]">
+      {/* The visible headline is just "welcome to my portfolio"; this gives it a name for search and screen readers. */}
+      <span className="sr-only">Hridayesh Neupane — </span>
       <span className="animate-rise font-sans text-[clamp(1.25rem,6vw,2rem)] leading-normal [animation-delay:120ms] desk:absolute desk:top-[calc(42.91*var(--u))] desk:left-[calc(168.03*var(--u))] desk:text-[calc(37.774*var(--u))]">
         welcome to my
       </span>{" "}
